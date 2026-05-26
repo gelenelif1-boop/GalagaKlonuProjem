@@ -256,3 +256,51 @@ int main() {
                     ++it;
                 }
             }
+            // --- CARPISMA TESTLERI (COLLISION DETECTION) ---
+            for (auto mermiIt = mermiler.begin(); mermiIt != mermiler.end();) {
+                bool mermiSilindi = false;
+
+                if (mermiIt->oyuncuMermisi) {
+                    // Oyuncu mermisinin dusmana carpma durumu
+                    for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
+                        if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->sekil.getGlobalBounds())) {
+                            mevcutSkor += 10;
+                            if (mevcutSkor > enYuksekSkor) {
+                                enYuksekSkor = mevcutSkor;
+                            }
+                            dusmanIt = dusmanlar.erase(dusmanIt);
+                            mermiIt = mermiler.erase(mermiIt);
+                            mermiSilindi = true;
+                            break;
+                        }
+                        else {
+                            ++dusmanIt;
+                        }
+                    }
+                }
+                else {
+                    // Dusman mermisinin oyuncuya carpma durumu
+                    if (mermiIt->sekil.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
+                        oyuncu.can--;
+                        mermiIt = mermiler.erase(mermiIt);
+                        mermiSilindi = true;
+                        if (oyuncu.can <= 0) {
+                            oyunBitti = true;
+                        }
+                    }
+                }
+
+                if (!mermiSilindi) {
+                    ++mermiIt;
+                }
+            }
+
+            // Tum dusmanlar vurulduysa yeni bir dalga (wave) olusturma
+            if (dusmanlar.empty()) {
+                for (int satir = 0; satir < 4; ++satir) {
+                    for (int sutun = 0; sutun < 6; ++sutun) {
+                        dusmanlar.push_back(Dusman(100.0f + sutun * 70.0f, 100.0f + satir * 50.0f));
+                    }
+                }
+            }
+        }
