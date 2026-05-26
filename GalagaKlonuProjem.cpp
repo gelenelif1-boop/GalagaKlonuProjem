@@ -184,7 +184,7 @@ int main() {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
-                window.close();7
+                window.close();
         }
 
         // Zaman takibi (Delta Time)
@@ -206,4 +206,53 @@ int main() {
                 mermiler.push_back(Mermi(oyuncu.sekil.getPosition().x, oyuncu.sekil.getPosition().y - 20, true));
                 atisGecikmesi = 0.25f;
             }
-        
+
+            // --- GUNCELLEMELER ---
+            // Formasyonun ortak salinim hareketi icin ofset hesabi
+            float formasyonOfsetX = std::sin(toplamZaman * 2.0f) * 40.0f;
+
+            // Belirli araliklarla rastgele bir dusmanin dalisa gecmesi
+            dalisZamanlayici += dt;
+            if (dalisZamanlayici > 3.0f && !dusmanlar.empty()) {
+                int rastgeleIndeks = std::rand() % dusmanlar.size();
+                if (dusmanlar[rastgeleIndeks].durum == DusmanDurumu::Formasyon) {
+                    dusmanlar[rastgeleIndeks].durum = DusmanDurumu::Dalista;
+                }
+                dalisZamanlayici = 0.0f;
+            }
+
+            // Dusmanlarin belirli periyotlarla atis yapmasi
+            dusmanAtisZamani += dt;
+            if (dusmanAtisZamani > 1.2f && !dusmanlar.empty()) {
+                int atesEdenDusman = std::rand() % dusmanlar.size();
+                mermiler.push_back(Mermi(dusmanlar[atesEdenDusman].sekil.getPosition().x, dusmanlar[atesEdenDusman].sekil.getPosition().y + 15, false));
+                dusmanAtisZamani = 0.0f;
+            }
+
+            // Dusman pozisyonlarinin guncellenmesi
+            for (size_t i = 0; i < dusmanlar.size(); ++i) {
+                dusmanlar[i].guncelle(formasyonOfsetX);
+
+                // Dalistaki dusman gemisinin oyuncuya dogrudan carpma kontrolu
+                if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
+                    if (dusmanlar[i].sekil.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
+                        oyuncu.can--;
+                        dusmanlar[i].aktifPozisyonu.y = dusmanlar[i].formasyonPozisyonu.y;
+                        dusmanlar[i].durum = DusmanDurumu::Formasyon;
+                        if (oyuncu.can <= 0) {
+                            oyunBitti = true;
+                        }
+                    }
+                }
+            }
+
+            // Mermilerin guncellenmesi ve ekran disina cikanlarin silinmesi
+            for (auto it = mermiler.begin(); it != mermiler.end();) {
+                it->guncelle();
+                if (it->sekil.getPosition().y < 0 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK) {
+                    it = mermiler.erase(it);
+                }
+                else {
+                    ++it;
+                }
+            }
