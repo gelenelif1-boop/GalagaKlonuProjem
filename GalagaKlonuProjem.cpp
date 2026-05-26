@@ -29,6 +29,7 @@ public:
         sekil.move(0, hiz);
     }
 };
+
 // Dusman Durumlari (Dalis mekanizmasi icin)
 enum class DusmanDurumu { Formasyon, Dalista };
 
@@ -83,6 +84,7 @@ public:
         }
     }
 };
+
 // Oyuncu Sinifi
 class Oyuncu {
 public:
@@ -117,6 +119,7 @@ public:
         }
     }
 };
+
 int main() {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -128,6 +131,7 @@ int main() {
     if (!font.loadFromFile("arial.ttf")) {
         // Font yuklenemezse alternatif bir hata yonetimi buraya eklenebilir
     }
+
     // Arayuz Metinleri
     sf::Text txtSkor;
     txtSkor.setFont(font);
@@ -152,3 +156,54 @@ int main() {
     txtGameOver.setOrigin(metinBoyutu.left + metinBoyutu.width / 2.0f, metinBoyutu.top + metinBoyutu.height / 2.0f);
     txtGameOver.setPosition(sf::Vector2f(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK / 2.0f));
 
+    // Oyun Dongusu Elemanlari
+    Oyuncu oyuncu;
+    std::vector<Mermi> mermiler;
+    std::vector<Dusman> dusmanlar;
+
+    int mevcutSkor = 0;
+    int enYuksekSkor = 236; // Istenen varsayilan yuksek skor degeri
+    bool oyunBitti = false;
+
+    // Dusman Formasyonunun Olusturulmasi (6 sutun x 4 satir grid yapisi)
+    for (int satir = 0; satir < 4; ++satir) {
+        for (int sutun = 0; sutun < 6; ++sutun) {
+            float xPoz = 100.0f + sutun * 70.0f;
+            float yPoz = 100.0f + satir * 50.0f;
+            dusmanlar.push_back(Dusman(xPoz, yPoz));
+        }
+    }
+
+    sf::Clock oyunSaati;
+    float atisGecikmesi = 0.0f;
+    float dusmanAtisZamani = 0.0f;
+    float dalisZamanlayici = 0.0f;
+
+    // --- ANA OYUN DONGUSU ---
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();7
+        }
+
+        // Zaman takibi (Delta Time)
+        float dt = 1.0f / 60.0f;
+        float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
+
+        if (!oyunBitti) {
+            // --- KLAVYE KONTROLLERİ ---
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                oyuncu.solaHareketEt();
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                oyuncu.sagaHareketEt();
+            }
+
+            // Coklu Atis Mekanizmasi (Gecikmeli seri atis)
+            if (atisGecikmesi > 0) atisGecikmesi -= dt;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && atisGecikmesi <= 0) {
+                mermiler.push_back(Mermi(oyuncu.sekil.getPosition().x, oyuncu.sekil.getPosition().y - 20, true));
+                atisGecikmesi = 0.25f;
+            }
+        
