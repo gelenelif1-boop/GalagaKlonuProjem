@@ -256,6 +256,7 @@ int main() {
                     ++it;
                 }
             }
+
             // --- CARPISMA TESTLERI (COLLISION DETECTION) ---
             for (auto mermiIt = mermiler.begin(); mermiIt != mermiler.end();) {
                 bool mermiSilindi = false;
@@ -304,3 +305,33 @@ int main() {
                 }
             }
         }
+
+        // Metin iceriklerinin anlik guncellenmesi
+        txtSkor.setString("SCORE: " + std::to_string(mevcutSkor) + "  high score=" + std::to_string(enYuksekSkor));
+        txtCan.setString("LIVES: " + std::to_string(oyuncu.can > 0 ? oyuncu.can : 0));
+
+        // --- EKRANA CIZIM ASAMASI ---
+        window.clear(sf::Color(10, 10, 25)); // Gece/Uzay temasi icin koyu arka plan
+
+        if (!oyunBitti) {
+            window.draw(oyuncu.sekil);
+            for (const auto& d : dusmanlar) {
+                window.draw(d.sekil);
+            }
+            for (const auto& m : mermiler) {
+                window.draw(m.sekil);
+            }
+        }
+        else {
+            window.draw(txtGameOver);
+        }
+
+        // Arayuz elemanlarini ciz
+        window.draw(txtSkor);
+        window.draw(txtCan);
+
+        window.display();
+    }
+
+    return 0;
+}
