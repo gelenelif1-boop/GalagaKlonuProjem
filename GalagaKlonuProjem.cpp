@@ -128,4 +128,27 @@ int main() {
     if (!font.loadFromFile("arial.ttf")) {
         // Font yuklenemezse alternatif bir hata yonetimi buraya eklenebilir
     }
+    // Arayuz Metinleri
+    sf::Text txtSkor;
+    txtSkor.setFont(font);
+    txtSkor.setCharacterSize(18);
+    txtSkor.setFillColor(sf::Color::Blue);
+    txtSkor.setPosition(10, 10);
+
+    sf::Text txtCan;
+    txtCan.setFont(font);
+    txtCan.setCharacterSize(18);
+    txtCan.setFillColor(sf::Color::Magenta);
+    txtCan.setPosition(EKRAN_GENISLIK - 100, 10);
+
+    sf::Text txtGameOver;
+    txtGameOver.setFont(font);
+    txtGameOver.setCharacterSize(45);
+    txtGameOver.setFillColor(sf::Color::Red);
+    txtGameOver.setString("GAME OVER");
+
+    // Game Over yazisini ekrana tam ortalama hesabi
+    sf::FloatRect metinBoyutu = txtGameOver.getLocalBounds();
+    txtGameOver.setOrigin(metinBoyutu.left + metinBoyutu.width / 2.0f, metinBoyutu.top + metinBoyutu.height / 2.0f);
+    txtGameOver.setPosition(sf::Vector2f(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK / 2.0f));
 
