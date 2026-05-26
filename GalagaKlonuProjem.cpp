@@ -83,4 +83,38 @@ public:
         }
     }
 };
+// Oyuncu Sinifi
+class Oyuncu {
+public:
+    sf::ConvexShape sekil;
+    float hiz;
+    int can;
+
+    Oyuncu() {
+        hiz = 5.5f;
+        can = 3;
+
+        // Klasik uzay gemisi sekli tasarimi
+        sekil.setPointCount(4);
+        sekil.setPoint(0, sf::Vector2f(20, 0));
+        sekil.setPoint(1, sf::Vector2f(40, 35));
+        sekil.setPoint(2, sf::Vector2f(20, 25));
+        sekil.setPoint(3, sf::Vector2f(0, 35));
+        sekil.setFillColor(sf::Color::White);
+        sekil.setOrigin(20, 17);
+        sekil.setPosition(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK - 60);
+    }
+
+    void solaHareketEt() {
+        if (sekil.getPosition().x > 20) {
+            sekil.move(-hiz, 0);
+        }
+    }
+
+    void sagaHareketEt() {
+        if (sekil.getPosition().x < EKRAN_GENISLIK - 20) {
+            sekil.move(hiz, 0);
+        }
+    }
+};
 
