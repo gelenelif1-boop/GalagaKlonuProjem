@@ -117,4 +117,15 @@ public:
         }
     }
 };
+int main() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+    sf::RenderWindow window(sf::VideoMode(EKRAN_GENISLIK, EKRAN_YUKSEKLIK), "Galaga Clone");
+    window.setFramerateLimit(60);
+
+    // Font yukleme islemi (Calismasi icin proje klasorunde arial.ttf bulunmalidir)
+    sf::Font font;
+    if (!font.loadFromFile("arial.ttf")) {
+        // Font yuklenemezse alternatif bir hata yonetimi buraya eklenebilir
+    }
 
