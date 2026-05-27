@@ -9,14 +9,13 @@
 const int EKRAN_GENISLIK = 600;
 const int EKRAN_YUKSEKLIK = 800;
 
-// >>> YENİ EKLEME: Uzay Arka Planı için Yıldız Yapısı <<<
+// Uzay Arka Planı için Yıldız Yapısı
 struct Yildiz {
     sf::Vector2f pozisyon;
     float hiz;
     sf::Color renk;
     int yanipSonmeZamanlayicisi;
 };
-// >>> EKLEME SONU <<<
 
 // Mermi Sinifi
 class Mermi {
@@ -24,7 +23,6 @@ public:
     sf::RectangleShape sekil;
     float hiz;
     bool oyuncuMermisi;
-
     Mermi(float x, float y, bool oyuncununMu) {
         oyuncuMermisi = oyuncununMu;
         // Oyuncu mermisi yukari (-), dusman mermisi asagi (+) gider
@@ -45,7 +43,12 @@ enum class DusmanDurumu { Formasyon, Dalista };
 // Dusman Sinifi
 class Dusman {
 public:
-    sf::ConvexShape sekil;
+    // >>> DEĞİŞİKLİK: Düşman gemisinin 3boyutluya çevrilmesi <<<
+    sf::ConvexShape kanatlar;
+    sf::ConvexShape govde;
+    sf::ConvexShape cekirdek;
+    // >>> DEĞİŞİKLİK SONU <<<
+
     sf::Vector2f formasyonPozisyonu;
     sf::Vector2f aktifPozisyonu;
     DusmanDurumu durum;
@@ -59,31 +62,51 @@ public:
         dalisHizi = 3.5f;
         sinusZamani = static_cast<float>(std::rand() % 100);
 
-        // Klasik Galaga tarzi ucgen/bocek gorunumu olusturma
-        sekil.setPointCount(5);
-        sekil.setPoint(0, sf::Vector2f(15, 0));
-        sekil.setPoint(1, sf::Vector2f(30, 20));
-        sekil.setPoint(2, sf::Vector2f(22, 30));
-        sekil.setPoint(3, sf::Vector2f(8, 30));
-        sekil.setPoint(4, sf::Vector2f(0, 20));
+        // >>> DEĞİŞİKLİK: Düşman gemisi tasarım değişiklği <<<
+        // Katman 1: Dış Kanat Yapısı (Mavi)
+        kanatlar.setPointCount(6);
+        kanatlar.setPoint(0, sf::Vector2f(15, 10));
+        kanatlar.setPoint(1, sf::Vector2f(32, 5));
+        kanatlar.setPoint(2, sf::Vector2f(26, 22));
+        kanatlar.setPoint(3, sf::Vector2f(15, 16));
+        kanatlar.setPoint(4, sf::Vector2f(6, 22));
+        kanatlar.setPoint(5, sf::Vector2f(0, 5));
+        kanatlar.setFillColor(sf::Color(40, 110, 255)); 
+        kanatlar.setOrigin(15, 15);
+        kanatlar.setPosition(aktifPozisyonu);
 
-        sekil.setFillColor(sf::Color::Green);
-        sekil.setOrigin(15, 15);
-        sekil.setPosition(aktifPozisyonu);
+        // Katman 2: Ana İç Gövde 
+        govde.setPointCount(4);
+        govde.setPoint(0, sf::Vector2f(15, 2));
+        govde.setPoint(1, sf::Vector2f(22, 14));
+        govde.setPoint(2, sf::Vector2f(15, 28));
+        govde.setPoint(3, sf::Vector2f(8, 14));
+        govde.setFillColor(sf::Color(255, 190, 0)); 
+        govde.setOrigin(15, 15);
+        govde.setPosition(aktifPozisyonu);
+
+        // Katman 3: Kokpit 
+        cekirdek.setPointCount(4);
+        cekirdek.setPoint(0, sf::Vector2f(15, 8));
+        cekirdek.setPoint(1, sf::Vector2f(18, 14));
+        cekirdek.setPoint(2, sf::Vector2f(15, 18));
+        cekirdek.setPoint(3, sf::Vector2f(12, 14));
+        cekirdek.setFillColor(sf::Color(255, 40, 40)); 
+        cekirdek.setOrigin(15, 15);
+        cekirdek.setPosition(aktifPozisyonu);
+        // >>> DEĞİŞİKLİK SONU <<<
     }
 
     void guncelle(float formasyonOfsetX) {
         if (durum == DusmanDurumu::Formasyon) {
-            // Sinuzoidal formasyon hareketi (saga ve sola ortak salinim)
+            // Salınım hareketi 
             aktifPozisyonu.x = formasyonPozisyonu.x + formasyonOfsetX;
-            sekil.setPosition(aktifPozisyonu);
         }
         else if (durum == DusmanDurumu::Dalista) {
             // Dalisa gecen dusman asagi inerken hafifce yalpalar
             aktifPozisyonu.y += dalisHizi;
             sinusZamani += 0.05f;
             aktifPozisyonu.x += std::sin(sinusZamani) * 2.0f;
-            sekil.setPosition(aktifPozisyonu);
 
             // Ekranin altindan cikan dusman tekrar uste, formasyona doner
             if (aktifPozisyonu.y > EKRAN_YUKSEKLIK + 20) {
@@ -91,6 +114,12 @@ public:
                 durum = DusmanDurumu::Formasyon;
             }
         }
+
+        // >>> DEĞİŞİKLİK: Hareket eden geminin tüm katmanlarını senkronize şekilde taşı <<<
+        kanatlar.setPosition(aktifPozisyonu);
+        govde.setPosition(aktifPozisyonu);
+        cekirdek.setPosition(aktifPozisyonu);
+        // >>> DEĞİŞİKLİK SONU <<<
     }
 };
 
@@ -135,50 +164,46 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(EKRAN_GENISLIK, EKRAN_YUKSEKLIK), "Galaga Clone");
     window.setFramerateLimit(60);
 
-    // >>> YENİ EKLEME: Rastgele Özelliklerde Yıldız Havuzu Oluşturma <<<
+    // Rastgele Özelliklerde Yıldız Havuzu Oluşturma
     std::vector<Yildiz> yildizlar;
     for (int i = 0; i < 80; ++i) {
         Yildiz y;
         y.pozisyon = sf::Vector2f(std::rand() % EKRAN_GENISLIK, std::rand() % EKRAN_YUKSEKLIK);
-        y.hiz = 0.5f + (std::rand() % 20) / 10.0f;           // 0.5 ile 2.5 arasında farklı kayma hızları
-        y.yanipSonmeZamanlayicisi = std::rand() % 60;        // Her yıldızın kırpışma anı farklı olsun diye
+        y.hiz = 0.5f + (std::rand() % 20) / 10.0f;
+        y.yanipSonmeZamanlayicisi = std::rand() % 60;
 
-        // Klasik arcade renk paleti (Beyaz, Sarı, Mavi, Kırmızımsı)
         int renkSecimi = std::rand() % 4;
         if (renkSecimi == 0) y.renk = sf::Color::White;
-        else if (renkSecimi == 1) y.renk = sf::Color(255, 255, 140); // Pastel Sarı
-        else if (renkSecimi == 2) y.renk = sf::Color(140, 200, 255); // Açık Mavi
-        else y.renk = sf::Color(255, 130, 130);                     // Açık Kırmızı
+        else if (renkSecimi == 1) y.renk = sf::Color(255, 255, 140);
+        else if (renkSecimi == 2) y.renk = sf::Color(140, 200, 255);
+        else y.renk = sf::Color(255, 130, 130);
 
         yildizlar.push_back(y);
     }
-    // >>> EKLEME SONU <<<
 
-
-
-    // Font yukleme islemi (Calismasi icin proje klasorunde arial.ttf bulunmalidir)
+    // Font yukleme islemi 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
-        // Font yuklenemezse alternatif bir hata yonetimi buraya eklenebilir
+        
     }
 
     // Arayuz Metinleri
     sf::Text txtSkor;
     txtSkor.setFont(font);
     txtSkor.setCharacterSize(18);
-    txtSkor.setFillColor(sf::Color::Blue);
+    txtSkor.setFillColor(sf::Color::Green);
     txtSkor.setPosition(10, 10);
 
     sf::Text txtCan;
     txtCan.setFont(font);
     txtCan.setCharacterSize(18);
-    txtCan.setFillColor(sf::Color::Magenta);
+    txtCan.setFillColor(sf::Color::Yellow);
     txtCan.setPosition(EKRAN_GENISLIK - 100, 10);
 
     sf::Text txtGameOver;
     txtGameOver.setFont(font);
     txtGameOver.setCharacterSize(45);
-    txtGameOver.setFillColor(sf::Color::Red);
+    txtGameOver.setFillColor(sf::Color::White);
     txtGameOver.setString("GAME OVER");
 
     // Game Over yazisini ekrana tam ortalama hesabi
@@ -192,7 +217,7 @@ int main() {
     std::vector<Dusman> dusmanlar;
 
     int mevcutSkor = 0;
-    int enYuksekSkor = 236; // Istenen varsayilan yuksek skor degeri
+    int enYuksekSkor = 236;
     bool oyunBitti = false;
 
     // Dusman Formasyonunun Olusturulmasi (6 sutun x 4 satir grid yapisi)
@@ -217,32 +242,25 @@ int main() {
                 window.close();
         }
 
-        // Zaman takibi (Delta Time)
+        // Zaman takibi 
         float dt = 1.0f / 60.0f;
         float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
 
-        // >>> YENİ EKLEME: Yıldız Pozisyonlarını Güncelleme ve Kırpıştırma Sistemi <<<
+        // Yıldız Pozisyonlarını Güncelleme ve Kırpıştırma Sistemi
         for (auto& y : yildizlar) {
-            y.pozisyon.y += y.hiz; // Aşağı doğru hareket efekti
-
-            // Ekrandan çıkan yıldızları tekrar yukarı al
+            y.pozisyon.y += y.hiz;
             if (y.pozisyon.y > EKRAN_YUKSEKLIK) {
                 y.pozisyon.y = 0;
                 y.pozisyon.x = std::rand() % EKRAN_GENISLIK;
             }
-
-            // Kırpışma mekanizması: Alfa (şeffaflık) değerini periyodik olarak azaltıp arttır
             y.yanipSonmeZamanlayicisi++;
             if (y.yanipSonmeZamanlayicisi % 60 < 15) {
-                y.renk.a = 70;  // Yıldız sönükleşir
+                y.renk.a = 70;
             }
             else {
-                y.renk.a = 255; // Yıldız parlar
+                y.renk.a = 255;
             }
         }
-        // >>> EKLEME SONU <<<
-
-
 
         if (!oyunBitti) {
             // --- KLAVYE KONTROLLERİ ---
@@ -278,7 +296,9 @@ int main() {
             dusmanAtisZamani += dt;
             if (dusmanAtisZamani > 1.2f && !dusmanlar.empty()) {
                 int atesEdenDusman = std::rand() % dusmanlar.size();
-                mermiler.push_back(Mermi(dusmanlar[atesEdenDusman].sekil.getPosition().x, dusmanlar[atesEdenDusman].sekil.getPosition().y + 15, false));
+                // >>> DEĞİŞİKLİK: Eski .sekil nesnesi yerine .aktifPozisyonu referans alındı <<<
+                mermiler.push_back(Mermi(dusmanlar[atesEdenDusman].aktifPozisyonu.x, dusmanlar[atesEdenDusman].aktifPozisyonu.y + 15, false));
+                // >>> DEĞİŞİKLİK SONU <<<
                 dusmanAtisZamani = 0.0f;
             }
 
@@ -288,7 +308,9 @@ int main() {
 
                 // Dalistaki dusman gemisinin oyuncuya dogrudan carpma kontrolu
                 if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
-                    if (dusmanlar[i].sekil.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
+                    // >>> DEĞİŞİKLİK: Çarpışma kutusu en geniş katman olan kanatlar üzerinden hesaplanır <<<
+                    if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
+                        // >>> DEĞİŞİKLİK SONU <<<
                         oyuncu.can--;
                         dusmanlar[i].aktifPozisyonu.y = dusmanlar[i].formasyonPozisyonu.y;
                         dusmanlar[i].durum = DusmanDurumu::Formasyon;
@@ -317,7 +339,9 @@ int main() {
                 if (mermiIt->oyuncuMermisi) {
                     // Oyuncu mermisinin dusmana carpma durumu
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
-                        if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->sekil.getGlobalBounds())) {
+                        // >>> DEĞİŞİKLİK: Oyuncu mermisinin düşman kanatlarına çarpma kontrolü <<<
+                        if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
+                            // >>> DEĞİŞİKLİK SONU <<<
                             mevcutSkor += 10;
                             if (mevcutSkor > enYuksekSkor) {
                                 enYuksekSkor = mevcutSkor;
@@ -364,23 +388,27 @@ int main() {
         txtCan.setString("LIVES: " + std::to_string(oyuncu.can > 0 ? oyuncu.can : 0));
 
         // --- EKRANA CIZIM ASAMASI ---
-        window.clear(sf::Color(10, 10, 25)); // Gece/Uzay temasi icin koyu arka plan
+        window.clear(sf::Color(10, 10, 25)); // Koyu Arka Plan
 
-        // >>> YENİ EKLEME: Arka Plan Yıldızlarını İlk Sırada Ekrana Çiz <<<
+        // Yıldızları Çiz
         for (const auto& y : yildizlar) {
-            sf::RectangleShape yildizSekil(sf::Vector2f(2.0f, 2.0f)); // Retro tarzı küçük kare pikseller
+            sf::RectangleShape yildizSekil(sf::Vector2f(2.0f, 2.0f));
             yildizSekil.setPosition(y.pozisyon);
             yildizSekil.setFillColor(y.renk);
             window.draw(yildizSekil);
         }
-        // >>> EKLEME SONU <<<
-
 
         if (!oyunBitti) {
             window.draw(oyuncu.sekil);
+
+            // >>> DEĞİŞİKLİK: Düşman gemisinin tüm katmanlarını derinlik sırasına göre ekrana çiz <<<
             for (const auto& d : dusmanlar) {
-                window.draw(d.sekil);
+                window.draw(d.kanatlar);  // Arka katman
+                window.draw(d.govde);     // Orta katman
+                window.draw(d.cekirdek);  // Ön parlama katmanı
             }
+            // >>> DEĞİŞİKLİK SONU <<<
+
             for (const auto& m : mermiler) {
                 window.draw(m.sekil);
             }
