@@ -9,6 +9,15 @@
 const int EKRAN_GENISLIK = 600;
 const int EKRAN_YUKSEKLIK = 800;
 
+// >>> YENİ EKLEME: Uzay Arka Planı için Yıldız Yapısı <<<
+struct Yildiz {
+    sf::Vector2f pozisyon;
+    float hiz;
+    sf::Color renk;
+    int yanipSonmeZamanlayicisi;
+};
+// >>> EKLEME SONU <<<
+
 // Mermi Sinifi
 class Mermi {
 public:
@@ -126,6 +135,27 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(EKRAN_GENISLIK, EKRAN_YUKSEKLIK), "Galaga Clone");
     window.setFramerateLimit(60);
 
+    // >>> YENİ EKLEME: Rastgele Özelliklerde Yıldız Havuzu Oluşturma <<<
+    std::vector<Yildiz> yildizlar;
+    for (int i = 0; i < 80; ++i) {
+        Yildiz y;
+        y.pozisyon = sf::Vector2f(std::rand() % EKRAN_GENISLIK, std::rand() % EKRAN_YUKSEKLIK);
+        y.hiz = 0.5f + (std::rand() % 20) / 10.0f;           // 0.5 ile 2.5 arasında farklı kayma hızları
+        y.yanipSonmeZamanlayicisi = std::rand() % 60;        // Her yıldızın kırpışma anı farklı olsun diye
+
+        // Klasik arcade renk paleti (Beyaz, Sarı, Mavi, Kırmızımsı)
+        int renkSecimi = std::rand() % 4;
+        if (renkSecimi == 0) y.renk = sf::Color::White;
+        else if (renkSecimi == 1) y.renk = sf::Color(255, 255, 140); // Pastel Sarı
+        else if (renkSecimi == 2) y.renk = sf::Color(140, 200, 255); // Açık Mavi
+        else y.renk = sf::Color(255, 130, 130);                     // Açık Kırmızı
+
+        yildizlar.push_back(y);
+    }
+    // >>> EKLEME SONU <<<
+
+
+
     // Font yukleme islemi (Calismasi icin proje klasorunde arial.ttf bulunmalidir)
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
@@ -190,6 +220,29 @@ int main() {
         // Zaman takibi (Delta Time)
         float dt = 1.0f / 60.0f;
         float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
+
+        // >>> YENİ EKLEME: Yıldız Pozisyonlarını Güncelleme ve Kırpıştırma Sistemi <<<
+        for (auto& y : yildizlar) {
+            y.pozisyon.y += y.hiz; // Aşağı doğru hareket efekti
+
+            // Ekrandan çıkan yıldızları tekrar yukarı al
+            if (y.pozisyon.y > EKRAN_YUKSEKLIK) {
+                y.pozisyon.y = 0;
+                y.pozisyon.x = std::rand() % EKRAN_GENISLIK;
+            }
+
+            // Kırpışma mekanizması: Alfa (şeffaflık) değerini periyodik olarak azaltıp arttır
+            y.yanipSonmeZamanlayicisi++;
+            if (y.yanipSonmeZamanlayicisi % 60 < 15) {
+                y.renk.a = 70;  // Yıldız sönükleşir
+            }
+            else {
+                y.renk.a = 255; // Yıldız parlar
+            }
+        }
+        // >>> EKLEME SONU <<<
+
+
 
         if (!oyunBitti) {
             // --- KLAVYE KONTROLLERİ ---
@@ -312,6 +365,16 @@ int main() {
 
         // --- EKRANA CIZIM ASAMASI ---
         window.clear(sf::Color(10, 10, 25)); // Gece/Uzay temasi icin koyu arka plan
+
+        // >>> YENİ EKLEME: Arka Plan Yıldızlarını İlk Sırada Ekrana Çiz <<<
+        for (const auto& y : yildizlar) {
+            sf::RectangleShape yildizSekil(sf::Vector2f(2.0f, 2.0f)); // Retro tarzı küçük kare pikseller
+            yildizSekil.setPosition(y.pozisyon);
+            yildizSekil.setFillColor(y.renk);
+            window.draw(yildizSekil);
+        }
+        // >>> EKLEME SONU <<<
+
 
         if (!oyunBitti) {
             window.draw(oyuncu.sekil);
