@@ -17,20 +17,21 @@ struct Yildiz {
     int yanipSonmeZamanlayicisi;
 };
 
-// >>> YENİ: Patlama Parçacığı Yapısı <<<
+// Patlama Parçacığı Yapısı
 struct PatlamaParcacigi {
     sf::Vector2f pozisyon;
     sf::Vector2f hiz;
     sf::Color renk;
     float omur;          // Parçacığın kalan ömrü (saniye cinsinden)
     float maksimumOmur;   // Başlangıç ömrü
+    float boyut;         // >>> YENİ: Game Over patlaması için değişken boyut desteği <<<
 };
 
-// >>> YENİ: Lazer İzi Parçacığı Yapısı <<<
+// Lazer İzi Parçacığı Yapısı
 struct LazerIzi {
     sf::Vector2f pozisyon;
     sf::Color renk;
-    float omur;          // İzlerin ekranda kalma süresi
+    float omur;
     float maksimumOmur;
 };
 
@@ -41,13 +42,11 @@ public:
     float hiz;
     bool oyuncuMermisi;
 
-    // >>> YENİ: Her merminin arkasında bırakacağı izleri tutan vektör ve zamanlayıcı <<<
     std::vector<LazerIzi> izler;
     float izBrakmaZamanlayicisi;
 
     Mermi(float x, float y, bool oyuncununMu) {
         oyuncuMermisi = oyuncununMu;
-        // Oyuncu mermisi yukari (-), dusman mermisi asagi (+) gider
         hiz = oyuncuMermisi ? -7.0f : 4.0f;
         sekil.setSize(sf::Vector2f(4, 12));
         sekil.setFillColor(oyuncuMermisi ? sf::Color::Cyan : sf::Color::Red);
@@ -56,31 +55,25 @@ public:
     }
 
     void guncelle(float dt) {
-        // Mermiyi hareket ettir
         sekil.move(0, hiz);
 
-        // >>> YENİ: Lazer İzi Bırakma Mekanizması <<<
         izBrakmaZamanlayicisi += dt;
-        if (izBrakmaZamanlayicisi >= 0.02f) { // Her 0.02 saniyede bir arkaya iz bırak
+        if (izBrakmaZamanlayicisi >= 0.02f) {
             LazerIzi yeniIz;
-            // İzi merminin tam arkasına yerleştiriyoruz (Oyuncu mermisi için altından, düşman için üstünden)
             float ofsetY = oyuncuMermisi ? sekil.getSize().y : 0.0f;
             yeniIz.pozisyon = sf::Vector2f(sekil.getPosition().x + sekil.getSize().x / 2.0f, sekil.getPosition().y + ofsetY);
 
-            // Dost mermisi Cyan (Turkuaz/Mavi), Düşman mermisi Kırmızı lazer izi bırakır
             yeniIz.renk = oyuncuMermisi ? sf::Color(0, 255, 255) : sf::Color(255, 0, 0);
-            yeniIz.maksimumOmur = 0.15f; // İzlerin ekranda kalacağı süre (saniye)
+            yeniIz.maksimumOmur = 0.15f;
             yeniIz.omur = yeniIz.maksimumOmur;
 
             izler.push_back(yeniIz);
             izBrakmaZamanlayicisi = 0.0f;
         }
 
-        // Mevcut izleri güncelle ve ömrü bitenleri sil
         for (auto it = izler.begin(); it != izler.end();) {
             it->omur -= dt;
 
-            // İz eskidikçe opaklığını (Alpha) azaltarak kaybolma efekti veriyoruz
             float oran = it->omur / it->maksimumOmur;
             if (oran < 0) oran = 0;
             it->renk.a = static_cast<sf::Uint8>(oran * 255);
@@ -95,7 +88,7 @@ public:
     }
 };
 
-// Dusman Durumlari (Dalis mekanizmasi icin)
+// Dusman Durumlari
 enum class DusmanDurumu { Formasyon, Dalista };
 
 // Dusman Sinifi
@@ -118,7 +111,6 @@ public:
         dalisHizi = 3.5f;
         sinusZamani = static_cast<float>(std::rand() % 100);
 
-        // Katman 1: Dış Kanat Yapısı (Mavi)
         kanatlar.setPointCount(6);
         kanatlar.setPoint(0, sf::Vector2f(15, 10));
         kanatlar.setPoint(1, sf::Vector2f(32, 5));
@@ -130,7 +122,6 @@ public:
         kanatlar.setOrigin(15, 15);
         kanatlar.setPosition(aktifPozisyonu);
 
-        // Katman 2: Ana İç Gövde 
         govde.setPointCount(4);
         govde.setPoint(0, sf::Vector2f(15, 2));
         govde.setPoint(1, sf::Vector2f(22, 14));
@@ -140,7 +131,6 @@ public:
         govde.setOrigin(15, 15);
         govde.setPosition(aktifPozisyonu);
 
-        // Katman 3: Kokpit 
         cekirdek.setPointCount(4);
         cekirdek.setPoint(0, sf::Vector2f(15, 8));
         cekirdek.setPoint(1, sf::Vector2f(18, 14));
@@ -172,7 +162,7 @@ public:
     }
 };
 
-// Oyuncu (Dost) Sınıfı
+// Oyuncu Sınıfı
 class Oyuncu {
 public:
     sf::ConvexShape kanatlar;
@@ -188,7 +178,6 @@ public:
         can = 3;
         pozisyon = sf::Vector2f(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK - 60);
 
-        // Katman 1: Geniş Dış Kanatlar ve Zırh (Açık Gümüş/Beyaz)
         kanatlar.setPointCount(5);
         kanatlar.setPoint(0, sf::Vector2f(20, 0));
         kanatlar.setPoint(1, sf::Vector2f(44, 38));
@@ -199,7 +188,6 @@ public:
         kanatlar.setOrigin(20, 19);
         kanatlar.setPosition(pozisyon);
 
-        // Katman 2: Agresif Ana Gövde Yapısı (Sarı/Turuncu)
         govde.setPointCount(4);
         govde.setPoint(0, sf::Vector2f(20, 4));
         govde.setPoint(1, sf::Vector2f(32, 28));
@@ -209,7 +197,6 @@ public:
         govde.setOrigin(20, 19);
         govde.setPosition(pozisyon);
 
-        // Katman 3: Enerji Çekirdeği / Cam Kokpit (Neon Kırmızı)
         kokpit.setPointCount(4);
         kokpit.setPoint(0, sf::Vector2f(20, 10));
         kokpit.setPoint(1, sf::Vector2f(24, 18));
@@ -248,7 +235,7 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(EKRAN_GENISLIK, EKRAN_YUKSEKLIK), "Galaga Clone");
     window.setFramerateLimit(60);
 
-    // Rastgele Özelliklerde Yıldız Havuzu Oluşturma
+    // Yıldız Havuzu Oluşturma
     std::vector<Yildiz> yildizlar;
     for (int i = 0; i < 80; ++i) {
         Yildiz y;
@@ -265,7 +252,6 @@ int main() {
         yildizlar.push_back(y);
     }
 
-    // Font yukleme islemi 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
         // Hata yonetimi
@@ -303,8 +289,10 @@ int main() {
     int mevcutSkor = 0;
     int enYuksekSkor = 236;
     bool oyunBitti = false;
+    // >>> YENİ: Büyük patlamanın sadece bir kez tetiklenmesini sağlayan bayrak <<<
+    bool büyükPatlamaTetiklendi = false;
 
-    // Dusman Formasyonunun Olusturulmasi (6 sutun x 4 satir grid yapisi)
+    // Dusman Formasyonunun Olusturulmasi
     for (int satir = 0; satir < 4; ++satir) {
         for (int sutun = 0; sutun < 6; ++sutun) {
             float xPoz = 100.0f + sutun * 70.0f;
@@ -329,7 +317,7 @@ int main() {
         float dt = 1.0f / 60.0f;
         float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
 
-        // Yıldız Pozisyonlarını Güncelleme ve Kırpıştırma Sistemi
+        // Yıldız Pozisyonlarını Güncelleme
         for (auto& y : yildizlar) {
             y.pozisyon.y += y.hiz;
             if (y.pozisyon.y > EKRAN_YUKSEKLIK) {
@@ -360,6 +348,41 @@ int main() {
             else {
                 ++it;
             }
+        }
+
+        // >>> YENİ: Game Over durumunda Büyük Ekran Patlaması Üretimi <<<
+        if (oyunBitti && !büyükPatlamaTetiklendi) {
+            // Patlamayı oyuncunun son elendiği noktadan başlatıyoruz
+            sf::Vector2f merkez = oyuncu.pozisyon;
+
+            // Ekranı kaplayacak kadar çok (250 adet) ve agresif parçacık saçıyoruz
+            for (int p = 0; p < 250; ++p) {
+                PatlamaParcacigi par;
+                par.pozisyon = merkez;
+
+                // Tam 360 derece rastgele saçılma açısı
+                float aci = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
+                // Ekranın tamamına yayılabilmeleri için yüksek hız çarpanı (3.0f - 12.0f)
+                float h = 3.00f + (std::rand() % 90) / 10.0f;
+                par.hiz = sf::Vector2f(std::cos(aci) * h, std::sin(aci) * h);
+
+                // Devasa etki hissi için parçacık boyutları da değişken (4px ile 9px arası büyük şarapneller)
+                par.boyut = 4.0f + (std::rand() % 6);
+
+                // Yangın ve büyük infilak renk paleti (Kırmızı, Turuncu, Parlak Beyaz, Sarı)
+                int renkSec = std::rand() % 4;
+                if (renkSec == 0) par.renk = sf::Color(255, 40, 0);     // Canlı Kırmızı
+                else if (renkSec == 1) par.renk = sf::Color(255, 130, 0);   // Yoğun Turuncu
+                else if (renkSec == 2) par.renk = sf::Color(255, 230, 50);   // Parlak Sarı
+                else par.renk = sf::Color(255, 255, 255);                    // Kor Beyaz
+
+                // Ekranı kaplarken yavaş yavaş sönmeleri için daha uzun bir ömür (0.6 - 1.8 saniye)
+                par.maksimumOmur = 0.6f + (std::rand() % 120) / 100.0f;
+                par.omur = par.maksimumOmur;
+
+                parcaciklar.push_back(par);
+            }
+            büyükPatlamaTetiklendi = true; // Patlamanın sonsuz döngüye girmesini engelle
         }
 
         if (!oyunBitti) {
@@ -415,6 +438,7 @@ int main() {
                             par.renk = (std::rand() % 2 == 0) ? sf::Color(255, 100, 0) : sf::Color(255, 200, 0);
                             par.maksimumOmur = 0.4f + (std::rand() % 40) / 100.0f;
                             par.omur = par.maksimumOmur;
+                            par.boyut = 3.0f; // Normal düşman patlama boyutu
                             parcaciklar.push_back(par);
                         }
 
@@ -430,9 +454,8 @@ int main() {
 
             // Mermilerin guncellenmesi
             for (auto it = mermiler.begin(); it != mermiler.end();) {
-                it->guncelle(dt); // >>> GÜNCELLENDİ: dt parametresi gönderildi <<<
+                it->guncelle(dt);
                 if (it->sekil.getPosition().y < -50 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK + 50) {
-                    // İzlerin tamamen kaybolması için sınırlardan biraz tolerans verildi
                     it = mermiler.erase(it);
                 }
                 else {
@@ -440,12 +463,11 @@ int main() {
                 }
             }
 
-            // --- CARPISMA TESTLERI (COLLISION DETECTION) ---
+            // --- CARPISMA TESTLERI ---
             for (auto mermiIt = mermiler.begin(); mermiIt != mermiler.end();) {
                 bool mermiSilindi = false;
 
                 if (mermiIt->oyuncuMermisi) {
-                    // Oyuncu mermisinin dusmana carpma durumu
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
                         if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
 
@@ -465,6 +487,7 @@ int main() {
 
                                 par.maksimumOmur = 0.3f + (std::rand() % 50) / 100.0f;
                                 par.omur = par.maksimumOmur;
+                                par.boyut = 3.0f;
 
                                 parcaciklar.push_back(par);
                             }
@@ -499,7 +522,6 @@ int main() {
                 }
             }
 
-            // Tum dusmanlar vurulduysa yeni bir dalga (wave) olusturma
             if (dusmanlar.empty()) {
                 for (int satir = 0; satir < 4; ++satir) {
                     for (int sutun = 0; sutun < 6; ++sutun) {
@@ -509,12 +531,11 @@ int main() {
             }
         }
 
-        // Metin iceriklerinin anlik guncellenmesi
         txtSkor.setString("SCORE: " + std::to_string(mevcutSkor) + "  high score=" + std::to_string(enYuksekSkor));
         txtCan.setString("LIVES: " + std::to_string(oyuncu.can > 0 ? oyuncu.can : 0));
 
         // --- EKRANA CIZIM ASAMASI ---
-        window.clear(sf::Color(10, 10, 25)); // Koyu Uzay Arka Planı
+        window.clear(sf::Color(10, 10, 25));
 
         // Yıldızları Çiz
         for (const auto& y : yildizlar) {
@@ -524,18 +545,17 @@ int main() {
             window.draw(yildizSekil);
         }
 
-        // Patlama Parçacıklarını Ekrana Çiz
+        // >>> GÜNCELLENDİ: Patlama Parçacıklarını kendi özel boyutuyla (par.boyut) çiziyoruz <<<
         for (const auto& par : parcaciklar) {
-            sf::RectangleShape parSekil(sf::Vector2f(3.0f, 3.0f));
+            sf::RectangleShape parSekil(sf::Vector2f(par.boyut, par.boyut));
             parSekil.setPosition(par.pozisyon);
             parSekil.setFillColor(par.renk);
             window.draw(parSekil);
         }
 
-        // >>> YENİ: Mermilerin Lazer İzlerini Çiz (Mermilerin altında görünmesi için mermilerden önce çiziliyor) <<<
+        // Mermilerin Lazer İzlerini Çiz
         for (const auto& mermi : mermiler) {
             for (const auto& iz : mermi.izler) {
-                // İzleri mermi genişliğinde (4px) ama daha kısa (4px) küçük parıltılı kareler olarak çiziyoruz
                 sf::RectangleShape izSekil(sf::Vector2f(4.0f, 4.0f));
                 izSekil.setOrigin(2.0f, 2.0f);
                 izSekil.setPosition(iz.pozisyon);
@@ -545,28 +565,25 @@ int main() {
         }
 
         if (!oyunBitti) {
-            // Oyuncu gemisinin katmanlarını çiz
             window.draw(oyuncu.kanatlar);
             window.draw(oyuncu.govde);
             window.draw(oyuncu.kokpit);
 
-            // Düşman gemilerini çiz
             for (const auto& d : dusmanlar) {
                 window.draw(d.kanatlar);
                 window.draw(d.govde);
                 window.draw(d.cekirdek);
             }
 
-            // Mermileri çiz
             for (const auto& m : mermiler) {
                 window.draw(m.sekil);
             }
         }
         else {
+            // >>> DEĞİŞTİRİLDİ: Oyun bitse de parçacıkların arka planda uçuşmaya devam etmesi için yazı ile beraber çiziliyor <<<
             window.draw(txtGameOver);
         }
 
-        // Arayuz elemanlarini ciz
         window.draw(txtSkor);
         window.draw(txtCan);
 
