@@ -17,6 +17,15 @@ struct Yildiz {
     int yanipSonmeZamanlayicisi;
 };
 
+// >>> YENİ: Patlama Parçacığı Yapısı <<<
+struct PatlamaParcacigi {
+    sf::Vector2f pozisyon;
+    sf::Vector2f hiz;
+    sf::Color renk;
+    float omur;          // Parçacığın kalan ömrü (saniye cinsinden)
+    float maksimumOmur;   // Başlangıç ömrü
+};
+
 // Mermi Sinifi
 class Mermi {
 public:
@@ -44,7 +53,6 @@ enum class DusmanDurumu { Formasyon, Dalista };
 // Dusman Sinifi
 class Dusman {
 public:
-    // Düşman gemisinin 3 boyutlu/katmanlı yapısı
     sf::ConvexShape kanatlar;
     sf::ConvexShape govde;
     sf::ConvexShape cekirdek;
@@ -110,7 +118,6 @@ public:
             }
         }
 
-        // Tüm katmanları senkronize taşı
         kanatlar.setPosition(aktifPozisyonu);
         govde.setPosition(aktifPozisyonu);
         cekirdek.setPosition(aktifPozisyonu);
@@ -120,7 +127,6 @@ public:
 // Oyuncu (Dost) Sınıfı
 class Oyuncu {
 public:
-    // >>> YENİ: Oyuncu gemisinin katmanlı görsel yapısı <<<
     sf::ConvexShape kanatlar;
     sf::ConvexShape govde;
     sf::ConvexShape kokpit;
@@ -244,6 +250,8 @@ int main() {
     Oyuncu oyuncu;
     std::vector<Mermi> mermiler;
     std::vector<Dusman> dusmanlar;
+    // >>> YENİ: Aktif patlama parçacıklarını tutacak vektör <<<
+    std::vector<PatlamaParcacigi> parcaciklar;
 
     int mevcutSkor = 0;
     int enYuksekSkor = 236;
@@ -290,6 +298,24 @@ int main() {
             }
         }
 
+        // >>> YENİ: Patlama Parçacıklarını Güncelleme ve Ömrü Bitenleri Silme <<<
+        for (auto it = parcaciklar.begin(); it != parcaciklar.end();) {
+            it->pozisyon += it->hiz;
+            it->omur -= dt;
+
+            // Parçacık eskidikçe opaklığını (Alpha değerini) düşürerek sönme efekti veriyoruz
+            float oran = it->omur / it->maksimumOmur;
+            if (oran < 0) oran = 0;
+            it->renk.a = static_cast<sf::Uint8>(oran * 255);
+
+            if (it->omur <= 0) {
+                it = parcaciklar.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
+
         if (!oyunBitti) {
             // --- KLAVYE KONTROLLERİ ---
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
@@ -299,10 +325,9 @@ int main() {
                 oyuncu.sagaHareketEt();
             }
 
-            // Coklu Atis Mekanizmasi (Gecikmeli seri atis)
+            // Coklu Atis Mekanizmasi
             if (atisGecikmesi > 0) atisGecikmesi -= dt;
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && atisGecikmesi <= 0) {
-                // Mermiyi tam ucun orta noktasından çıkarıyoruz
                 mermiler.push_back(Mermi(oyuncu.pozisyon.x, oyuncu.pozisyon.y - 20, true));
                 atisGecikmesi = 0.25f;
             }
@@ -332,10 +357,22 @@ int main() {
             for (size_t i = 0; i < dusmanlar.size(); ++i) {
                 dusmanlar[i].guncelle(formasyonOfsetX);
 
-                // Dalistaki dusman gemisinin oyuncuya dogrudan carpma kontrolu
                 if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
-                    // Çarpışma kutusu iki geminin de en geniş dış katmanları (kanatlar) üzerinden hesaplanır
                     if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
+
+                        // >>> YENİ: Oyuncuya çarpınca da düşman konumunda patlama oluştur <<<
+                        for (int p = 0; p < 15; ++p) {
+                            PatlamaParcacigi par;
+                            par.pozisyon = dusmanlar[i].aktifPozisyonu;
+                            float aci = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
+                            float h = 1.0f + (std::rand() % 30) / 10.0f;
+                            par.hiz = sf::Vector2f(std::cos(aci) * h, std::sin(aci) * h);
+                            par.renk = (std::rand() % 2 == 0) ? sf::Color(255, 100, 0) : sf::Color(255, 200, 0);
+                            par.maksimumOmur = 0.4f + (std::rand() % 40) / 100.0f;
+                            par.omur = par.maksimumOmur;
+                            parcaciklar.push_back(par);
+                        }
+
                         oyuncu.can--;
                         dusmanlar[i].aktifPozisyonu.y = dusmanlar[i].formasyonPozisyonu.y;
                         dusmanlar[i].durum = DusmanDurumu::Formasyon;
@@ -365,6 +402,30 @@ int main() {
                     // Oyuncu mermisinin dusmana carpma durumu
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
                         if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
+
+                            // >>> YENİ: Düşman vurulduğunda patlama parçacıkları üretme mekanizması <<<
+                            sf::Vector2f patlamaMerkezi = dusmanIt->aktifPozisyonu;
+                            for (int p = 0; p < 25; ++p) { // 25 adet kıvılcım parçacığı fırlatılır
+                                PatlamaParcacigi par;
+                                par.pozisyon = patlamaMerkezi;
+
+                                // 360 derece rastgele bir açı hesaplama
+                                float aci = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
+                                float h = 1.5f + (std::rand() % 40) / 10.0f; // Rastgele saçılma hızı
+                                par.hiz = sf::Vector2f(std::cos(aci) * h, std::sin(aci) * h);
+
+                                // Düşman renk paletine uygun ateş/patlama renkleri (Turuncu, Sarı, Kırmızı kıvılcımlar)
+                                int renkSec = std::rand() % 3;
+                                if (renkSec == 0) par.renk = sf::Color(255, 69, 0);       // Turuncu-Kırmızı
+                                else if (renkSec == 1) par.renk = sf::Color(255, 165, 0);  // Turuncu
+                                else par.renk = sf::Color(255, 215, 0);                   // Altın Sarısı
+
+                                par.maksimumOmur = 0.3f + (std::rand() % 50) / 100.0f; // 0.3 - 0.8 saniye arası ömür
+                                par.omur = par.maksimumOmur;
+
+                                parcaciklar.push_back(par);
+                            }
+
                             mevcutSkor += 10;
                             if (mevcutSkor > enYuksekSkor) {
                                 enYuksekSkor = mevcutSkor;
@@ -380,7 +441,6 @@ int main() {
                     }
                 }
                 else {
-                    // Dusman mermisinin oyuncuya carpma durumu (Oyuncu kanat yapısı referans alındı)
                     if (mermiIt->sekil.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
                         oyuncu.can--;
                         mermiIt = mermiler.erase(mermiIt);
@@ -421,11 +481,19 @@ int main() {
             window.draw(yildizSekil);
         }
 
+        // >>> YENİ: Patlama Parçacıklarını Ekrana Çiz <<<
+        for (const auto& par : parcaciklar) {
+            sf::RectangleShape parSekil(sf::Vector2f(3.0f, 3.0f)); // Küçük kare kıvılcımlar
+            parSekil.setPosition(par.pozisyon);
+            parSekil.setFillColor(par.renk);
+            window.draw(parSekil);
+        }
+
         if (!oyunBitti) {
-            // >>> YENİ: Oyuncu gemisinin katmanlarını derinlik sırasına göre ekrana çiz <<<
-            window.draw(oyuncu.kanatlar); // En arka zırh katmanı
-            window.draw(oyuncu.govde);    // Orta renk katmanı
-            window.draw(oyuncu.kokpit);   // Ön kokpit katmanı
+            // Oyuncu gemisinin katmanlarını çiz
+            window.draw(oyuncu.kanatlar);
+            window.draw(oyuncu.govde);
+            window.draw(oyuncu.kokpit);
 
             // Düşman gemilerini çiz
             for (const auto& d : dusmanlar) {
