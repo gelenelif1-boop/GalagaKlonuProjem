@@ -26,12 +26,24 @@ struct PatlamaParcacigi {
     float maksimumOmur;   // Başlangıç ömrü
 };
 
+// >>> YENİ: Lazer İzi Parçacığı Yapısı <<<
+struct LazerIzi {
+    sf::Vector2f pozisyon;
+    sf::Color renk;
+    float omur;          // İzlerin ekranda kalma süresi
+    float maksimumOmur;
+};
+
 // Mermi Sinifi
 class Mermi {
 public:
     sf::RectangleShape sekil;
     float hiz;
     bool oyuncuMermisi;
+
+    // >>> YENİ: Her merminin arkasında bırakacağı izleri tutan vektör ve zamanlayıcı <<<
+    std::vector<LazerIzi> izler;
+    float izBrakmaZamanlayicisi;
 
     Mermi(float x, float y, bool oyuncununMu) {
         oyuncuMermisi = oyuncununMu;
@@ -40,10 +52,46 @@ public:
         sekil.setSize(sf::Vector2f(4, 12));
         sekil.setFillColor(oyuncuMermisi ? sf::Color::Cyan : sf::Color::Red);
         sekil.setPosition(x, y);
+        izBrakmaZamanlayicisi = 0.0f;
     }
 
-    void guncelle() {
+    void guncelle(float dt) {
+        // Mermiyi hareket ettir
         sekil.move(0, hiz);
+
+        // >>> YENİ: Lazer İzi Bırakma Mekanizması <<<
+        izBrakmaZamanlayicisi += dt;
+        if (izBrakmaZamanlayicisi >= 0.02f) { // Her 0.02 saniyede bir arkaya iz bırak
+            LazerIzi yeniIz;
+            // İzi merminin tam arkasına yerleştiriyoruz (Oyuncu mermisi için altından, düşman için üstünden)
+            float ofsetY = oyuncuMermisi ? sekil.getSize().y : 0.0f;
+            yeniIz.pozisyon = sf::Vector2f(sekil.getPosition().x + sekil.getSize().x / 2.0f, sekil.getPosition().y + ofsetY);
+
+            // Dost mermisi Cyan (Turkuaz/Mavi), Düşman mermisi Kırmızı lazer izi bırakır
+            yeniIz.renk = oyuncuMermisi ? sf::Color(0, 255, 255) : sf::Color(255, 0, 0);
+            yeniIz.maksimumOmur = 0.15f; // İzlerin ekranda kalacağı süre (saniye)
+            yeniIz.omur = yeniIz.maksimumOmur;
+
+            izler.push_back(yeniIz);
+            izBrakmaZamanlayicisi = 0.0f;
+        }
+
+        // Mevcut izleri güncelle ve ömrü bitenleri sil
+        for (auto it = izler.begin(); it != izler.end();) {
+            it->omur -= dt;
+
+            // İz eskidikçe opaklığını (Alpha) azaltarak kaybolma efekti veriyoruz
+            float oran = it->omur / it->maksimumOmur;
+            if (oran < 0) oran = 0;
+            it->renk.a = static_cast<sf::Uint8>(oran * 255);
+
+            if (it->omur <= 0) {
+                it = izler.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
     }
 };
 
@@ -250,7 +298,6 @@ int main() {
     Oyuncu oyuncu;
     std::vector<Mermi> mermiler;
     std::vector<Dusman> dusmanlar;
-    // >>> YENİ: Aktif patlama parçacıklarını tutacak vektör <<<
     std::vector<PatlamaParcacigi> parcaciklar;
 
     int mevcutSkor = 0;
@@ -298,12 +345,11 @@ int main() {
             }
         }
 
-        // >>> YENİ: Patlama Parçacıklarını Güncelleme ve Ömrü Bitenleri Silme <<<
+        // Patlama Parçacıklarını Güncelleme ve Ömrü Bitenleri Silme
         for (auto it = parcaciklar.begin(); it != parcaciklar.end();) {
             it->pozisyon += it->hiz;
             it->omur -= dt;
 
-            // Parçacık eskidikçe opaklığını (Alpha değerini) düşürerek sönme efekti veriyoruz
             float oran = it->omur / it->maksimumOmur;
             if (oran < 0) oran = 0;
             it->renk.a = static_cast<sf::Uint8>(oran * 255);
@@ -360,7 +406,6 @@ int main() {
                 if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
                     if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
 
-                        // >>> YENİ: Oyuncuya çarpınca da düşman konumunda patlama oluştur <<<
                         for (int p = 0; p < 15; ++p) {
                             PatlamaParcacigi par;
                             par.pozisyon = dusmanlar[i].aktifPozisyonu;
@@ -385,8 +430,9 @@ int main() {
 
             // Mermilerin guncellenmesi
             for (auto it = mermiler.begin(); it != mermiler.end();) {
-                it->guncelle();
-                if (it->sekil.getPosition().y < 0 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK) {
+                it->guncelle(dt); // >>> GÜNCELLENDİ: dt parametresi gönderildi <<<
+                if (it->sekil.getPosition().y < -50 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK + 50) {
+                    // İzlerin tamamen kaybolması için sınırlardan biraz tolerans verildi
                     it = mermiler.erase(it);
                 }
                 else {
@@ -403,24 +449,21 @@ int main() {
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
                         if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
 
-                            // >>> YENİ: Düşman vurulduğunda patlama parçacıkları üretme mekanizması <<<
                             sf::Vector2f patlamaMerkezi = dusmanIt->aktifPozisyonu;
-                            for (int p = 0; p < 25; ++p) { // 25 adet kıvılcım parçacığı fırlatılır
+                            for (int p = 0; p < 25; ++p) {
                                 PatlamaParcacigi par;
                                 par.pozisyon = patlamaMerkezi;
 
-                                // 360 derece rastgele bir açı hesaplama
                                 float aci = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
-                                float h = 1.5f + (std::rand() % 40) / 10.0f; // Rastgele saçılma hızı
+                                float h = 1.5f + (std::rand() % 40) / 10.0f;
                                 par.hiz = sf::Vector2f(std::cos(aci) * h, std::sin(aci) * h);
 
-                                // Düşman renk paletine uygun ateş/patlama renkleri (Turuncu, Sarı, Kırmızı kıvılcımlar)
                                 int renkSec = std::rand() % 3;
-                                if (renkSec == 0) par.renk = sf::Color(255, 69, 0);       // Turuncu-Kırmızı
-                                else if (renkSec == 1) par.renk = sf::Color(255, 165, 0);  // Turuncu
-                                else par.renk = sf::Color(255, 215, 0);                   // Altın Sarısı
+                                if (renkSec == 0) par.renk = sf::Color(255, 69, 0);
+                                else if (renkSec == 1) par.renk = sf::Color(255, 165, 0);
+                                else par.renk = sf::Color(255, 215, 0);
 
-                                par.maksimumOmur = 0.3f + (std::rand() % 50) / 100.0f; // 0.3 - 0.8 saniye arası ömür
+                                par.maksimumOmur = 0.3f + (std::rand() % 50) / 100.0f;
                                 par.omur = par.maksimumOmur;
 
                                 parcaciklar.push_back(par);
@@ -481,12 +524,24 @@ int main() {
             window.draw(yildizSekil);
         }
 
-        // >>> YENİ: Patlama Parçacıklarını Ekrana Çiz <<<
+        // Patlama Parçacıklarını Ekrana Çiz
         for (const auto& par : parcaciklar) {
-            sf::RectangleShape parSekil(sf::Vector2f(3.0f, 3.0f)); // Küçük kare kıvılcımlar
+            sf::RectangleShape parSekil(sf::Vector2f(3.0f, 3.0f));
             parSekil.setPosition(par.pozisyon);
             parSekil.setFillColor(par.renk);
             window.draw(parSekil);
+        }
+
+        // >>> YENİ: Mermilerin Lazer İzlerini Çiz (Mermilerin altında görünmesi için mermilerden önce çiziliyor) <<<
+        for (const auto& mermi : mermiler) {
+            for (const auto& iz : mermi.izler) {
+                // İzleri mermi genişliğinde (4px) ama daha kısa (4px) küçük parıltılı kareler olarak çiziyoruz
+                sf::RectangleShape izSekil(sf::Vector2f(4.0f, 4.0f));
+                izSekil.setOrigin(2.0f, 2.0f);
+                izSekil.setPosition(iz.pozisyon);
+                izSekil.setFillColor(iz.renk);
+                window.draw(izSekil);
+            }
         }
 
         if (!oyunBitti) {
