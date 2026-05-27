@@ -23,12 +23,13 @@ public:
     sf::RectangleShape sekil;
     float hiz;
     bool oyuncuMermisi;
+
     Mermi(float x, float y, bool oyuncununMu) {
         oyuncuMermisi = oyuncununMu;
         // Oyuncu mermisi yukari (-), dusman mermisi asagi (+) gider
         hiz = oyuncuMermisi ? -7.0f : 4.0f;
         sekil.setSize(sf::Vector2f(4, 12));
-        sekil.setFillColor(oyuncuMermisi ? sf::Color::Blue : sf::Color::Red);
+        sekil.setFillColor(oyuncuMermisi ? sf::Color::Cyan : sf::Color::Red);
         sekil.setPosition(x, y);
     }
 
@@ -43,11 +44,10 @@ enum class DusmanDurumu { Formasyon, Dalista };
 // Dusman Sinifi
 class Dusman {
 public:
-    // >>> DEĞİŞİKLİK: Düşman gemisinin 3boyutluya çevrilmesi <<<
+    // Düşman gemisinin 3 boyutlu/katmanlı yapısı
     sf::ConvexShape kanatlar;
     sf::ConvexShape govde;
     sf::ConvexShape cekirdek;
-    // >>> DEĞİŞİKLİK SONU <<<
 
     sf::Vector2f formasyonPozisyonu;
     sf::Vector2f aktifPozisyonu;
@@ -62,7 +62,6 @@ public:
         dalisHizi = 3.5f;
         sinusZamani = static_cast<float>(std::rand() % 100);
 
-        // >>> DEĞİŞİKLİK: Düşman gemisi tasarım değişiklği <<<
         // Katman 1: Dış Kanat Yapısı (Mavi)
         kanatlar.setPointCount(6);
         kanatlar.setPoint(0, sf::Vector2f(15, 10));
@@ -71,7 +70,7 @@ public:
         kanatlar.setPoint(3, sf::Vector2f(15, 16));
         kanatlar.setPoint(4, sf::Vector2f(6, 22));
         kanatlar.setPoint(5, sf::Vector2f(0, 5));
-        kanatlar.setFillColor(sf::Color(40, 110, 255)); 
+        kanatlar.setFillColor(sf::Color(40, 110, 255));
         kanatlar.setOrigin(15, 15);
         kanatlar.setPosition(aktifPozisyonu);
 
@@ -81,7 +80,7 @@ public:
         govde.setPoint(1, sf::Vector2f(22, 14));
         govde.setPoint(2, sf::Vector2f(15, 28));
         govde.setPoint(3, sf::Vector2f(8, 14));
-        govde.setFillColor(sf::Color(255, 190, 0)); 
+        govde.setFillColor(sf::Color(255, 190, 0));
         govde.setOrigin(15, 15);
         govde.setPosition(aktifPozisyonu);
 
@@ -91,70 +90,101 @@ public:
         cekirdek.setPoint(1, sf::Vector2f(18, 14));
         cekirdek.setPoint(2, sf::Vector2f(15, 18));
         cekirdek.setPoint(3, sf::Vector2f(12, 14));
-        cekirdek.setFillColor(sf::Color(255, 40, 40)); 
+        cekirdek.setFillColor(sf::Color(255, 40, 40));
         cekirdek.setOrigin(15, 15);
         cekirdek.setPosition(aktifPozisyonu);
-        // >>> DEĞİŞİKLİK SONU <<<
     }
 
     void guncelle(float formasyonOfsetX) {
         if (durum == DusmanDurumu::Formasyon) {
-            // Salınım hareketi 
             aktifPozisyonu.x = formasyonPozisyonu.x + formasyonOfsetX;
         }
         else if (durum == DusmanDurumu::Dalista) {
-            // Dalisa gecen dusman asagi inerken hafifce yalpalar
             aktifPozisyonu.y += dalisHizi;
             sinusZamani += 0.05f;
             aktifPozisyonu.x += std::sin(sinusZamani) * 2.0f;
 
-            // Ekranin altindan cikan dusman tekrar uste, formasyona doner
             if (aktifPozisyonu.y > EKRAN_YUKSEKLIK + 20) {
                 aktifPozisyonu.y = formasyonPozisyonu.y;
                 durum = DusmanDurumu::Formasyon;
             }
         }
 
-        // >>> DEĞİŞİKLİK: Hareket eden geminin tüm katmanlarını senkronize şekilde taşı <<<
+        // Tüm katmanları senkronize taşı
         kanatlar.setPosition(aktifPozisyonu);
         govde.setPosition(aktifPozisyonu);
         cekirdek.setPosition(aktifPozisyonu);
-        // >>> DEĞİŞİKLİK SONU <<<
     }
 };
 
-// Oyuncu Sinifi
+// Oyuncu (Dost) Sınıfı
 class Oyuncu {
 public:
-    sf::ConvexShape sekil;
+    // >>> YENİ: Oyuncu gemisinin katmanlı görsel yapısı <<<
+    sf::ConvexShape kanatlar;
+    sf::ConvexShape govde;
+    sf::ConvexShape kokpit;
+
     float hiz;
     int can;
+    sf::Vector2f pozisyon;
 
     Oyuncu() {
         hiz = 5.5f;
         can = 3;
+        pozisyon = sf::Vector2f(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK - 60);
 
-        // Klasik uzay gemisi sekli tasarimi
-        sekil.setPointCount(4);
-        sekil.setPoint(0, sf::Vector2f(20, 0));
-        sekil.setPoint(1, sf::Vector2f(40, 35));
-        sekil.setPoint(2, sf::Vector2f(20, 25));
-        sekil.setPoint(3, sf::Vector2f(0, 35));
-        sekil.setFillColor(sf::Color::White);
-        sekil.setOrigin(20, 17);
-        sekil.setPosition(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK - 60);
+        // Katman 1: Geniş Dış Kanatlar ve Zırh (Açık Gümüş/Beyaz)
+        kanatlar.setPointCount(5);
+        kanatlar.setPoint(0, sf::Vector2f(20, 0));
+        kanatlar.setPoint(1, sf::Vector2f(44, 38));
+        kanatlar.setPoint(2, sf::Vector2f(29, 30));
+        kanatlar.setPoint(3, sf::Vector2f(11, 30));
+        kanatlar.setPoint(4, sf::Vector2f(-4, 38));
+        kanatlar.setFillColor(sf::Color(230, 235, 245));
+        kanatlar.setOrigin(20, 19);
+        kanatlar.setPosition(pozisyon);
+
+        // Katman 2: Agresif Ana Gövde Yapısı (Sarı/Turuncu)
+        govde.setPointCount(4);
+        govde.setPoint(0, sf::Vector2f(20, 4));
+        govde.setPoint(1, sf::Vector2f(32, 28));
+        govde.setPoint(2, sf::Vector2f(20, 22));
+        govde.setPoint(3, sf::Vector2f(8, 28));
+        govde.setFillColor(sf::Color(255, 175, 0));
+        govde.setOrigin(20, 19);
+        govde.setPosition(pozisyon);
+
+        // Katman 3: Enerji Çekirdeği / Cam Kokpit (Neon Kırmızı)
+        kokpit.setPointCount(4);
+        kokpit.setPoint(0, sf::Vector2f(20, 10));
+        kokpit.setPoint(1, sf::Vector2f(24, 18));
+        kokpit.setPoint(2, sf::Vector2f(20, 21));
+        kokpit.setPoint(3, sf::Vector2f(16, 18));
+        kokpit.setFillColor(sf::Color(240, 20, 20));
+        kokpit.setOrigin(20, 19);
+        kokpit.setPosition(pozisyon);
     }
 
     void solaHareketEt() {
-        if (sekil.getPosition().x > 20) {
-            sekil.move(-hiz, 0);
+        if (pozisyon.x > 25) {
+            pozisyon.x -= hiz;
+            senkronizeEt();
         }
     }
 
     void sagaHareketEt() {
-        if (sekil.getPosition().x < EKRAN_GENISLIK - 20) {
-            sekil.move(hiz, 0);
+        if (pozisyon.x < EKRAN_GENISLIK - 25) {
+            pozisyon.x += hiz;
+            senkronizeEt();
         }
+    }
+
+private:
+    void senkronizeEt() {
+        kanatlar.setPosition(pozisyon);
+        govde.setPosition(pozisyon);
+        kokpit.setPosition(pozisyon);
     }
 };
 
@@ -184,7 +214,7 @@ int main() {
     // Font yukleme islemi 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
-        
+        // Hata yonetimi
     }
 
     // Arayuz Metinleri
@@ -206,7 +236,6 @@ int main() {
     txtGameOver.setFillColor(sf::Color::White);
     txtGameOver.setString("GAME OVER");
 
-    // Game Over yazisini ekrana tam ortalama hesabi
     sf::FloatRect metinBoyutu = txtGameOver.getLocalBounds();
     txtGameOver.setOrigin(metinBoyutu.left + metinBoyutu.width / 2.0f, metinBoyutu.top + metinBoyutu.height / 2.0f);
     txtGameOver.setPosition(sf::Vector2f(EKRAN_GENISLIK / 2.0f, EKRAN_YUKSEKLIK / 2.0f));
@@ -242,7 +271,6 @@ int main() {
                 window.close();
         }
 
-        // Zaman takibi 
         float dt = 1.0f / 60.0f;
         float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
 
@@ -274,12 +302,12 @@ int main() {
             // Coklu Atis Mekanizmasi (Gecikmeli seri atis)
             if (atisGecikmesi > 0) atisGecikmesi -= dt;
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && atisGecikmesi <= 0) {
-                mermiler.push_back(Mermi(oyuncu.sekil.getPosition().x, oyuncu.sekil.getPosition().y - 20, true));
+                // Mermiyi tam ucun orta noktasından çıkarıyoruz
+                mermiler.push_back(Mermi(oyuncu.pozisyon.x, oyuncu.pozisyon.y - 20, true));
                 atisGecikmesi = 0.25f;
             }
 
             // --- GUNCELLEMELER ---
-            // Formasyonun ortak salinim hareketi icin ofset hesabi
             float formasyonOfsetX = std::sin(toplamZaman * 2.0f) * 40.0f;
 
             // Belirli araliklarla rastgele bir dusmanin dalisa gecmesi
@@ -296,9 +324,7 @@ int main() {
             dusmanAtisZamani += dt;
             if (dusmanAtisZamani > 1.2f && !dusmanlar.empty()) {
                 int atesEdenDusman = std::rand() % dusmanlar.size();
-                // >>> DEĞİŞİKLİK: Eski .sekil nesnesi yerine .aktifPozisyonu referans alındı <<<
                 mermiler.push_back(Mermi(dusmanlar[atesEdenDusman].aktifPozisyonu.x, dusmanlar[atesEdenDusman].aktifPozisyonu.y + 15, false));
-                // >>> DEĞİŞİKLİK SONU <<<
                 dusmanAtisZamani = 0.0f;
             }
 
@@ -308,9 +334,8 @@ int main() {
 
                 // Dalistaki dusman gemisinin oyuncuya dogrudan carpma kontrolu
                 if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
-                    // >>> DEĞİŞİKLİK: Çarpışma kutusu en geniş katman olan kanatlar üzerinden hesaplanır <<<
-                    if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
-                        // >>> DEĞİŞİKLİK SONU <<<
+                    // Çarpışma kutusu iki geminin de en geniş dış katmanları (kanatlar) üzerinden hesaplanır
+                    if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
                         oyuncu.can--;
                         dusmanlar[i].aktifPozisyonu.y = dusmanlar[i].formasyonPozisyonu.y;
                         dusmanlar[i].durum = DusmanDurumu::Formasyon;
@@ -321,7 +346,7 @@ int main() {
                 }
             }
 
-            // Mermilerin guncellenmesi ve ekran disina cikanlarin silinmesi
+            // Mermilerin guncellenmesi
             for (auto it = mermiler.begin(); it != mermiler.end();) {
                 it->guncelle();
                 if (it->sekil.getPosition().y < 0 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK) {
@@ -339,9 +364,7 @@ int main() {
                 if (mermiIt->oyuncuMermisi) {
                     // Oyuncu mermisinin dusmana carpma durumu
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
-                        // >>> DEĞİŞİKLİK: Oyuncu mermisinin düşman kanatlarına çarpma kontrolü <<<
                         if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
-                            // >>> DEĞİŞİKLİK SONU <<<
                             mevcutSkor += 10;
                             if (mevcutSkor > enYuksekSkor) {
                                 enYuksekSkor = mevcutSkor;
@@ -357,8 +380,8 @@ int main() {
                     }
                 }
                 else {
-                    // Dusman mermisinin oyuncuya carpma durumu
-                    if (mermiIt->sekil.getGlobalBounds().intersects(oyuncu.sekil.getGlobalBounds())) {
+                    // Dusman mermisinin oyuncuya carpma durumu (Oyuncu kanat yapısı referans alındı)
+                    if (mermiIt->sekil.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
                         oyuncu.can--;
                         mermiIt = mermiler.erase(mermiIt);
                         mermiSilindi = true;
@@ -388,7 +411,7 @@ int main() {
         txtCan.setString("LIVES: " + std::to_string(oyuncu.can > 0 ? oyuncu.can : 0));
 
         // --- EKRANA CIZIM ASAMASI ---
-        window.clear(sf::Color(10, 10, 25)); // Koyu Arka Plan
+        window.clear(sf::Color(10, 10, 25)); // Koyu Uzay Arka Planı
 
         // Yıldızları Çiz
         for (const auto& y : yildizlar) {
@@ -399,16 +422,19 @@ int main() {
         }
 
         if (!oyunBitti) {
-            window.draw(oyuncu.sekil);
+            // >>> YENİ: Oyuncu gemisinin katmanlarını derinlik sırasına göre ekrana çiz <<<
+            window.draw(oyuncu.kanatlar); // En arka zırh katmanı
+            window.draw(oyuncu.govde);    // Orta renk katmanı
+            window.draw(oyuncu.kokpit);   // Ön kokpit katmanı
 
-            // >>> DEĞİŞİKLİK: Düşman gemisinin tüm katmanlarını derinlik sırasına göre ekrana çiz <<<
+            // Düşman gemilerini çiz
             for (const auto& d : dusmanlar) {
-                window.draw(d.kanatlar);  // Arka katman
-                window.draw(d.govde);     // Orta katman
-                window.draw(d.cekirdek);  // Ön parlama katmanı
+                window.draw(d.kanatlar);
+                window.draw(d.govde);
+                window.draw(d.cekirdek);
             }
-            // >>> DEĞİŞİKLİK SONU <<<
 
+            // Mermileri çiz
             for (const auto& m : mermiler) {
                 window.draw(m.sekil);
             }
