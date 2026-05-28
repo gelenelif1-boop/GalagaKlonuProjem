@@ -1,9 +1,11 @@
 ﻿#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp> // >>> YENİ: Ses kütüphanesi eklendi <<<
 #include <vector>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <string>
+#include <list>           // >>> YENİ: Eşzamanlı sesleri tutmak için eklendi <<<
 
 // --- OYUN AYARLARI ---
 const int EKRAN_GENISLIK = 600;
@@ -11,28 +13,28 @@ const int EKRAN_YUKSEKLIK = 800;
 
 // Uzay Arka Planı için Yıldız Yapısı
 struct Yildiz {
-    sf::Vector2f pozisyon;
-    float hiz;
-    sf::Color renk;
-    int yanipSonmeZamanlayicisi;
+    sf::Vector2f pozisyon{ 0.0f, 0.0f };
+    float hiz{ 0.0f };
+    sf::Color renk{ sf::Color::White };
+    int yanipSonmeZamanlayicisi{ 0 };
 };
 
 // Patlama Parçacığı Yapısı
 struct PatlamaParcacigi {
-    sf::Vector2f pozisyon;
-    sf::Vector2f hiz;
-    sf::Color renk;
-    float omur;          // Parçacığın kalan ömrü (saniye cinsinden)
-    float maksimumOmur;   // Başlangıç ömrü
-    float boyut;         // >>> YENİ: Game Over patlaması için değişken boyut desteği <<<
+    sf::Vector2f pozisyon{ 0.0f, 0.0f };
+    sf::Vector2f hiz{ 0.0f, 0.0f };
+    sf::Color renk{ sf::Color::White };
+    float omur{ 0.0f };
+    float maksimumOmur{ 0.0f };
+    float boyut{ 1.0f };
 };
 
 // Lazer İzi Parçacığı Yapısı
 struct LazerIzi {
-    sf::Vector2f pozisyon;
-    sf::Color renk;
-    float omur;
-    float maksimumOmur;
+    sf::Vector2f pozisyon{ 0.0f, 0.0f };
+    sf::Color renk{ sf::Color::White };
+    float omur{ 0.0f };
+    float maksimumOmur{ 0.0f };
 };
 
 // Mermi Sinifi
@@ -235,11 +237,32 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(EKRAN_GENISLIK, EKRAN_YUKSEKLIK), "Galaga Clone");
     window.setFramerateLimit(60);
 
+    // --- SES YÖNETİMİ (AUDIO) EKLENTİSİ ---
+    // Ses belleklerini (SoundBuffer) yükle
+    sf::SoundBuffer bufAtis;
+    if (!bufAtis.loadFromFile("atis.wav")) { /* Hata yönetimi */ }
+
+    sf::SoundBuffer bufPatlama;
+    if (!bufPatlama.loadFromFile("patlama.wav")) { /* Hata yönetimi */ }
+
+    sf::SoundBuffer bufGameOver;
+    if (!bufGameOver.loadFromFile("gameover.wav")) { /* Hata yönetimi */ }
+
+    // Eşzamanlı sesleri tutacak liste
+    std::list<sf::Sound> aktifSesler;
+
+    // Pratik ses çalma lambda fonksiyonu
+    auto sesCal = [&](const sf::SoundBuffer& buffer) {
+        aktifSesler.emplace_back(buffer);
+        aktifSesler.back().play();
+        };
+    // --------------------------------------
+
     // Yıldız Havuzu Oluşturma
     std::vector<Yildiz> yildizlar;
     for (int i = 0; i < 80; ++i) {
         Yildiz y;
-        y.pozisyon = sf::Vector2f(std::rand() % EKRAN_GENISLIK, std::rand() % EKRAN_YUKSEKLIK);
+        y.pozisyon = sf::Vector2f(static_cast<float>(std::rand() % EKRAN_GENISLIK), static_cast<float>(std::rand() % EKRAN_YUKSEKLIK));
         y.hiz = 0.5f + (std::rand() % 20) / 10.0f;
         y.yanipSonmeZamanlayicisi = std::rand() % 60;
 
@@ -289,7 +312,6 @@ int main() {
     int mevcutSkor = 0;
     int enYuksekSkor = 236;
     bool oyunBitti = false;
-    // >>> YENİ: Büyük patlamanın sadece bir kez tetiklenmesini sağlayan bayrak <<<
     bool büyükPatlamaTetiklendi = false;
 
     // Dusman Formasyonunun Olusturulmasi
@@ -317,12 +339,22 @@ int main() {
         float dt = 1.0f / 60.0f;
         float toplamZaman = oyunSaati.getElapsedTime().asSeconds();
 
+        // Ses Yöneticisini Temizle (Bitmiş sesleri RAM'den sil)
+        for (auto it = aktifSesler.begin(); it != aktifSesler.end();) {
+            if (it->getStatus() == sf::Sound::Stopped) {
+                it = aktifSesler.erase(it);
+            }
+            else {
+                ++it;
+            }
+        }
+
         // Yıldız Pozisyonlarını Güncelleme
         for (auto& y : yildizlar) {
             y.pozisyon.y += y.hiz;
             if (y.pozisyon.y > EKRAN_YUKSEKLIK) {
                 y.pozisyon.y = 0;
-                y.pozisyon.x = std::rand() % EKRAN_GENISLIK;
+                y.pozisyon.x = static_cast<float>(std::rand() % EKRAN_GENISLIK);
             }
             y.yanipSonmeZamanlayicisi++;
             if (y.yanipSonmeZamanlayicisi % 60 < 15) {
@@ -333,7 +365,7 @@ int main() {
             }
         }
 
-        // Patlama Parçacıklarını Güncelleme ve Ömrü Bitenleri Silme
+        // Patlama Parçacıklarını Güncelleme
         for (auto it = parcaciklar.begin(); it != parcaciklar.end();) {
             it->pozisyon += it->hiz;
             it->omur -= dt;
@@ -350,39 +382,34 @@ int main() {
             }
         }
 
-        // >>> YENİ: Game Over durumunda Büyük Ekran Patlaması Üretimi <<<
+        // Game Over Durumunda Büyük Patlama Üretimi
         if (oyunBitti && !büyükPatlamaTetiklendi) {
-            // Patlamayı oyuncunun son elendiği noktadan başlatıyoruz
             sf::Vector2f merkez = oyuncu.pozisyon;
 
-            // Ekranı kaplayacak kadar çok (250 adet) ve agresif parçacık saçıyoruz
+            // >>> YENİ: Game Over Sesi Çal <<<
+            sesCal(bufGameOver);
+
             for (int p = 0; p < 250; ++p) {
                 PatlamaParcacigi par;
                 par.pozisyon = merkez;
 
-                // Tam 360 derece rastgele saçılma açısı
                 float aci = static_cast<float>(std::rand() % 360) * 3.14159f / 180.0f;
-                // Ekranın tamamına yayılabilmeleri için yüksek hız çarpanı (3.0f - 12.0f)
                 float h = 3.00f + (std::rand() % 90) / 10.0f;
                 par.hiz = sf::Vector2f(std::cos(aci) * h, std::sin(aci) * h);
-
-                // Devasa etki hissi için parçacık boyutları da değişken (4px ile 9px arası büyük şarapneller)
                 par.boyut = 4.0f + (std::rand() % 6);
 
-                // Yangın ve büyük infilak renk paleti (Kırmızı, Turuncu, Parlak Beyaz, Sarı)
                 int renkSec = std::rand() % 4;
-                if (renkSec == 0) par.renk = sf::Color(255, 40, 0);     // Canlı Kırmızı
-                else if (renkSec == 1) par.renk = sf::Color(255, 130, 0);   // Yoğun Turuncu
-                else if (renkSec == 2) par.renk = sf::Color(255, 230, 50);   // Parlak Sarı
-                else par.renk = sf::Color(255, 255, 255);                    // Kor Beyaz
+                if (renkSec == 0) par.renk = sf::Color(255, 40, 0);
+                else if (renkSec == 1) par.renk = sf::Color(255, 130, 0);
+                else if (renkSec == 2) par.renk = sf::Color(255, 230, 50);
+                else par.renk = sf::Color(255, 255, 255);
 
-                // Ekranı kaplarken yavaş yavaş sönmeleri için daha uzun bir ömür (0.6 - 1.8 saniye)
                 par.maksimumOmur = 0.6f + (std::rand() % 120) / 100.0f;
                 par.omur = par.maksimumOmur;
 
                 parcaciklar.push_back(par);
             }
-            büyükPatlamaTetiklendi = true; // Patlamanın sonsuz döngüye girmesini engelle
+            büyükPatlamaTetiklendi = true;
         }
 
         if (!oyunBitti) {
@@ -399,13 +426,13 @@ int main() {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && atisGecikmesi <= 0) {
                 mermiler.push_back(Mermi(oyuncu.pozisyon.x, oyuncu.pozisyon.y - 20, true));
                 atisGecikmesi = 0.25f;
+                // >>> YENİ: Oyuncu Ateş Sesi <<<
+                sesCal(bufAtis);
             }
 
             // --- GUNCELLEMELER ---
             float formasyonOfsetX = std::sin(toplamZaman * 2.0f) * 40.0f;
 
-            // Belirli araliklarla rastgele bir dusmanin dalisa gecmesi
-            dalisZamanlayici += dt;
             if (dalisZamanlayici > 3.0f && !dusmanlar.empty()) {
                 int rastgeleIndeks = std::rand() % dusmanlar.size();
                 if (dusmanlar[rastgeleIndeks].durum == DusmanDurumu::Formasyon) {
@@ -414,20 +441,23 @@ int main() {
                 dalisZamanlayici = 0.0f;
             }
 
-            // Dusmanlarin belirli periyotlarla atis yapmasi
             dusmanAtisZamani += dt;
             if (dusmanAtisZamani > 1.2f && !dusmanlar.empty()) {
                 int atesEdenDusman = std::rand() % dusmanlar.size();
                 mermiler.push_back(Mermi(dusmanlar[atesEdenDusman].aktifPozisyonu.x, dusmanlar[atesEdenDusman].aktifPozisyonu.y + 15, false));
                 dusmanAtisZamani = 0.0f;
+                // >>> YENİ: Düşman Ateş Sesi <<<
+                sesCal(bufAtis);
             }
 
-            // Dusman pozisyonlarinin guncellenmesi
             for (size_t i = 0; i < dusmanlar.size(); ++i) {
                 dusmanlar[i].guncelle(formasyonOfsetX);
 
                 if (dusmanlar[i].durum == DusmanDurumu::Dalista) {
                     if (dusmanlar[i].kanatlar.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
+
+                        // >>> YENİ: Çarpışma Patlama Sesi <<<
+                        sesCal(bufPatlama);
 
                         for (int p = 0; p < 15; ++p) {
                             PatlamaParcacigi par;
@@ -438,7 +468,7 @@ int main() {
                             par.renk = (std::rand() % 2 == 0) ? sf::Color(255, 100, 0) : sf::Color(255, 200, 0);
                             par.maksimumOmur = 0.4f + (std::rand() % 40) / 100.0f;
                             par.omur = par.maksimumOmur;
-                            par.boyut = 3.0f; // Normal düşman patlama boyutu
+                            par.boyut = 3.0f;
                             parcaciklar.push_back(par);
                         }
 
@@ -452,7 +482,6 @@ int main() {
                 }
             }
 
-            // Mermilerin guncellenmesi
             for (auto it = mermiler.begin(); it != mermiler.end();) {
                 it->guncelle(dt);
                 if (it->sekil.getPosition().y < -50 || it->sekil.getPosition().y > EKRAN_YUKSEKLIK + 50) {
@@ -470,6 +499,9 @@ int main() {
                 if (mermiIt->oyuncuMermisi) {
                     for (auto dusmanIt = dusmanlar.begin(); dusmanIt != dusmanlar.end();) {
                         if (mermiIt->sekil.getGlobalBounds().intersects(dusmanIt->kanatlar.getGlobalBounds())) {
+
+                            // >>> YENİ: Vurulma Patlama Sesi <<<
+                            sesCal(bufPatlama);
 
                             sf::Vector2f patlamaMerkezi = dusmanIt->aktifPozisyonu;
                             for (int p = 0; p < 25; ++p) {
@@ -508,6 +540,10 @@ int main() {
                 }
                 else {
                     if (mermiIt->sekil.getGlobalBounds().intersects(oyuncu.kanatlar.getGlobalBounds())) {
+
+                        // >>> YENİ: Oyuncu Hasar Alma Sesi <<<
+                        sesCal(bufPatlama);
+
                         oyuncu.can--;
                         mermiIt = mermiler.erase(mermiIt);
                         mermiSilindi = true;
@@ -537,7 +573,6 @@ int main() {
         // --- EKRANA CIZIM ASAMASI ---
         window.clear(sf::Color(10, 10, 25));
 
-        // Yıldızları Çiz
         for (const auto& y : yildizlar) {
             sf::RectangleShape yildizSekil(sf::Vector2f(2.0f, 2.0f));
             yildizSekil.setPosition(y.pozisyon);
@@ -545,7 +580,6 @@ int main() {
             window.draw(yildizSekil);
         }
 
-        // >>> GÜNCELLENDİ: Patlama Parçacıklarını kendi özel boyutuyla (par.boyut) çiziyoruz <<<
         for (const auto& par : parcaciklar) {
             sf::RectangleShape parSekil(sf::Vector2f(par.boyut, par.boyut));
             parSekil.setPosition(par.pozisyon);
@@ -553,7 +587,6 @@ int main() {
             window.draw(parSekil);
         }
 
-        // Mermilerin Lazer İzlerini Çiz
         for (const auto& mermi : mermiler) {
             for (const auto& iz : mermi.izler) {
                 sf::RectangleShape izSekil(sf::Vector2f(4.0f, 4.0f));
@@ -580,7 +613,6 @@ int main() {
             }
         }
         else {
-            // >>> DEĞİŞTİRİLDİ: Oyun bitse de parçacıkların arka planda uçuşmaya devam etmesi için yazı ile beraber çiziliyor <<<
             window.draw(txtGameOver);
         }
 
